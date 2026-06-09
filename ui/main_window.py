@@ -1,0 +1,223 @@
+# ui/main_window.py
+import cv2
+import numpy as np
+from PyQt5.QtWidgets import (
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton
+)
+from PyQt5.QtCore import Qt, QTimer, pyqtSlot
+from PyQt5.QtGui import QImage, QPixmap, QFont
+
+from core.camera_thread import CameraThread
+from core.piano_mode import PianoProcessor
+from core.drum_mode import DrumProcessor
+from hardware.gpio_handler import GPIOHandler
+from hardware.audio_engine import AudioEngine
+from config import (
+    THEME_BG, THEME_TEXT, THEME_PIANO_ACC,
+    THEME_DRUM_ACC, THEME_PRIMARY, SLEEP_TIMEOUT_SEC
+)
+
+
+class MainWindow(QMainWindow):
+    """
+    AirBand PyQt5 메인 윈도우.
+
+    레이아웃:
+      ┌─────────────────────────────────────┐
+      │  HEADER: 로고 + 모드 전환 버튼 + 파라미터 표시  │
+      ├──────────────────┬──────────────────┤
+      │ 카메라 빰  (640px) │ 상태 패널          │
+      └──────────────────┴──────────────────┘
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('AirBand')
+        self.setStyleSheet(f'background-color: {THEME_BG}; color: {THEME_TEXT};')
+
+        self.mode           = 'piano'
+        self.current_param  = 'octave'
+        self.base_octave    = 3
+        self.sensitivity    = 2.0
+        self.volume         = 70
+        self._sleep_count   = 0
+        self.is_sleeping    = False
+
+        self._audio      = AudioEngine()
+        self._piano_proc = PianoProcessor(self._audio)
+        self._drum_proc  = DrumProcessor(self._audio)
+
+        self._build_ui()
+        self._start_camera()
+        self._init_gpio()
+
+        self._sleep_timer = QTimer()
+        self._sleep_timer.timeout.connect(self._check_sleep)
+        self._sleep_timer.start(1000)
+
+    # ── UI 빌드 ──
+    def _build_ui(self):
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(6)
+        layout.addWidget(self._build_header())
+        layout.addLayout(self._build_body())
+
+    def _build_header(self):
+        header = QWidget()
+        row = QHBoxLayout(header)
+        row.setContentsMargins(4, 4, 4, 4)
+
+        title = QLabel('🎵 AirBand')
+        title.setFont(QFont('sans-serif', 16, QFont.Bold))
+        title.setStyleSheet(f'color: {THEME_PRIMARY};')
+        row.addWidget(title)
+        row.addStretch()
+
+        self._piano_btn = QPushButton('🎹 피아노')
+        self._drum_btn  = QPushButton('🥁 드럼')
+        inactive = 'background:#1a1a22;border:1px solid #2a2a38;border-radius:6px;padding:0 16px;color:#7878a0;'
+        for btn in [self._piano_btn, self._drum_btn]:
+            btn.setFixedHeight(36)
+            btn.setStyleSheet(inactive)
+        self._piano_btn.clicked.connect(lambda: self._on_mode_change('piano'))
+        self._drum_btn.clicked.connect(lambda: self._on_mode_change('drum'))
+        row.addWidget(self._piano_btn)
+        row.addWidget(self._drum_btn)
+
+        self._param_label = QLabel(f'[{self.current_param}]')
+        self._param_label.setStyleSheet(f'color:{THEME_PRIMARY};font-size:12px;')
+        row.addWidget(self._param_label)
+        return header
+
+    def _build_body(self):
+        body = QHBoxLayout()
+        body.setSpacing(8)
+
+        self._cam_label = QLabel()
+        self._cam_label.setFixedSize(640, 480)
+        self._cam_label.setStyleSheet('border:1px solid #2a2a38;border-radius:8px;')
+        body.addWidget(self._cam_label)
+
+        panel = QWidget()
+        playout = QVBoxLayout(panel)
+        playout.setSpacing(8)
+
+        self._note_label = QLabel('—')
+        self._note_label.setAlignment(Qt.AlignCenter)
+        self._note_label.setFont(QFont('sans-serif', 48, QFont.Bold))
+        self._note_label.setStyleSheet(f'color:{THEME_PIANO_ACC};')
+        playout.addWidget(self._note_label)
+
+        self._detail_label = QLabel('손을 카메라 앞에서 움직여보세요')
+        self._detail_label.setAlignment(Qt.AlignCenter)
+        self._detail_label.setStyleSheet('color:#7878a0;font-size:11px;')
+        playout.addWidget(self._detail_label)
+        playout.addStretch()
+
+        body.addWidget(panel, 1)
+        return body
+
+    # ── 초기화 ──
+    def _start_camera(self):
+        self._cam_thread = CameraThread()
+        self._cam_thread.frame_ready.connect(self._on_frame)
+        self._cam_thread.start()
+
+    def _init_gpio(self):
+        try:
+            self._gpio = GPIOHandler()
+            self._gpio.pir_detected.connect(self._on_pir)
+            self._gpio.mode_changed.connect(self._on_mode_change)
+            self._gpio.encoder_rotated.connect(self._on_encoder)
+            self._gpio.encoder_pressed.connect(self._on_enc_btn)
+        except RuntimeError as e:
+            print(f'[GPIO 경고] {e}')
+            self._gpio = None
+
+    # ── 슬롯 ──
+    @pyqtSlot(object, object)
+    def _on_frame(self, frame: np.ndarray, fingertips: list):
+        if self.is_sleeping:
+            return
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+        qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
+        self._cam_label.setPixmap(
+            QPixmap.fromImage(qimg).scaled(640, 480, Qt.KeepAspectRatio)
+        )
+
+        if self.mode == 'piano':
+            result = self._piano_proc.process(fingertips)
+            if result:
+                self._note_label.setText(f"{result['note']}{result['octave']}")
+                self._detail_label.setText(
+                    f"Vol {result['volume']*100:.0f}%  |  옷타브 {result['octave']}"
+                )
+        else:
+            hits = self._drum_proc.process(fingertips)
+            if hits:
+                pads = ', '.join(h['pad'].upper() for h in hits)
+                self._note_label.setText(pads)
+                self._detail_label.setText(f"velocity {hits[0]['velocity']*100:.0f}%")
+
+    @pyqtSlot(str)
+    def _on_mode_change(self, mode: str):
+        self.mode = mode
+        acc = THEME_PIANO_ACC if mode == 'piano' else THEME_DRUM_ACC
+        self._note_label.setStyleSheet(f'color:{acc};')
+        active   = f'background:{acc}22;border:1px solid {acc};border-radius:6px;padding:0 16px;color:{acc};'
+        inactive = 'background:#1a1a22;border:1px solid #2a2a38;border-radius:6px;padding:0 16px;color:#7878a0;'
+        if mode == 'piano':
+            self._piano_btn.setStyleSheet(active)
+            self._drum_btn.setStyleSheet(inactive)
+        else:
+            self._drum_btn.setStyleSheet(active)
+            self._piano_btn.setStyleSheet(inactive)
+
+    @pyqtSlot()
+    def _on_pir(self):
+        self._sleep_count = 0
+        if self.is_sleeping:
+            self.is_sleeping = False
+            self._cam_thread.running = True
+
+    @pyqtSlot(int)
+    def _on_encoder(self, direction: int):
+        if self.current_param == 'octave':
+            self.base_octave = max(2, min(6, self.base_octave + direction))
+            self._piano_proc.set_octave(self.base_octave)
+            self._param_label.setText(f'[옷타브 {self.base_octave}]')
+        elif self.current_param == 'sensitivity':
+            self.sensitivity = round(max(0.5, min(5.0, self.sensitivity + direction * 0.2)), 1)
+            self._drum_proc.set_sensitivity(self.sensitivity)
+            self._param_label.setText(f'[감도 {self.sensitivity}]')
+        elif self.current_param == 'volume':
+            self.volume = max(0, min(100, self.volume + direction * 5))
+            self._audio.set_volume(self.volume)
+            self._param_label.setText(f'[볼륨 {self.volume}%]')
+
+    @pyqtSlot()
+    def _on_enc_btn(self):
+        params = ['octave', 'sensitivity', 'volume']
+        idx = params.index(self.current_param)
+        self.current_param = params[(idx + 1) % len(params)]
+        self._param_label.setText(f'[{self.current_param}]')
+
+    def _check_sleep(self):
+        self._sleep_count += 1
+        if self._sleep_count >= SLEEP_TIMEOUT_SEC and not self.is_sleeping:
+            self.is_sleeping = True
+            self._cam_thread.running = False
+            self._note_label.setText('💤')
+            self._detail_label.setText('PIR 감지 시 활성화됩니다')
+
+    def closeEvent(self, event):
+        self._cam_thread.stop()
+        if self._gpio:
+            self._gpio.cleanup()
+        self._audio.close()
+        event.accept()
