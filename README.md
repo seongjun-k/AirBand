@@ -83,8 +83,8 @@ PIR 센서      → pir_detected()       → 30초 무감지 시 절전 모드
 
 ### 요구 사항
 
-- Raspberry Pi 4 (권장) + 카메라 모듈 또는 USB 웹캠
-- Python 3.9+
+- Raspberry Pi 4 Model B 4GB + 카메라 모듈 또는 USB 웹캠
+- Python 3.10
 - pigpiod 데몬 실행 필요
 
 ### 의존성 설치
