@@ -15,7 +15,7 @@ from hardware.audio_engine import AudioEngine
 from config import (
     THEME_BG, THEME_TEXT, THEME_PIANO_ACC,
     THEME_DRUM_ACC, THEME_PRIMARY, SLEEP_TIMEOUT_SEC,
-    DISP_WIDTH, DISP_HEIGHT
+    DISP_WIDTH, DISP_HEIGHT, SCALE_NOTES
 )
 
 
@@ -148,23 +148,107 @@ class MainWindow(QMainWindow):
             return
 
         h, w, ch = rgb_frame.shape
-        bytes_per_line = ch * w
-        qimg = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888).copy()
-        self._cam_label.setPixmap(QPixmap.fromImage(qimg))
 
+        # ── 피아노/드럼 건반 구분선 및 타격 하이라이트 렌더링 ──
         if self.mode == 'piano':
+            total_keys = len(SCALE_NOTES) * 2  # 2옥타브 분량 (14칸)
+            key_width = w / total_keys
+            
+            # 피아노 분석 처리 호출
             result = self._piano_proc.process(fingertips)
+            
+            active_idx = None
+            is_triggered = False
+            if fingertips:
+                hand = fingertips[0]
+                x, y, z = hand['tips'][1]  # 검지 끝 좌표
+                active_idx = int(max(0.0, min(0.999, x)) * total_keys)
+                if result and result.get('triggered', False):
+                    is_triggered = True
+                
+                # 해당 건반 영역 반투명 하이라이트
+                x_start = int(active_idx * key_width)
+                x_end = int((active_idx + 1) * key_width)
+                overlay = rgb_frame.copy()
+                
+                # 트리거 시: 진한 보라색(alpha 0.55), 단순 호버 시: 연한 초록색(alpha 0.2)
+                alpha = 0.55 if is_triggered else 0.2
+                color = (245, 106, 124) if is_triggered else (138, 191, 26)  # RGB
+                cv2.rectangle(overlay, (x_start, 0), (x_end, h), color, -1)
+                cv2.addWeighted(overlay, alpha, rgb_frame, 1 - alpha, 0, rgb_frame)
+            
+            # 세로 건반 경계선 및 음이름 텍스트 오버레이
+            for i in range(total_keys):
+                x_pos = int(i * key_width)
+                if i > 0:
+                    cv2.line(rgb_frame, (x_pos, 0), (x_pos, h), (80, 80, 90), 1)
+                
+                note = SCALE_NOTES[i % len(SCALE_NOTES)]
+                octave = self.base_octave + (i // len(SCALE_NOTES))
+                text = f"{note}{octave}"
+                cx = int((i + 0.5) * key_width)
+                cv2.putText(rgb_frame, text, (cx - 10, h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (220, 220, 220), 1, cv2.LINE_AA)
+            
             if result:
                 self._note_label.setText(f"{result['note']}{result['octave']}")
                 self._detail_label.setText(
                     f"Vol {result['volume']*100:.0f}%  |  옥타브 {result['octave']}"
                 )
         else:
+            # 드럼 분석 처리 호출
             hits = self._drum_proc.process(fingertips)
+            
+            active_pad = None
+            if fingertips:
+                hand = fingertips[0]
+                x, y, z = hand['tips'][1]
+                
+                is_hit = len(hits) > 0
+                if is_hit:
+                    active_pad = hits[0]['pad']
+                else:
+                    if x < 0.5 and y < 0.5: active_pad = 'hihat'
+                    elif x >= 0.5 and y < 0.5: active_pad = 'clap'
+                    elif x < 0.5 and y >= 0.5: active_pad = 'kick'
+                    else: active_pad = 'snare'
+                
+                rects = {
+                    'hihat': (0, 0, w//2, h//2),
+                    'clap':  (w//2, 0, w, h//2),
+                    'kick':  (0, h//2, w//2, h),
+                    'snare': (w//2, h//2, w, h),
+                }
+                rect = rects.get(active_pad)
+                if rect:
+                    overlay = rgb_frame.copy()
+                    alpha = 0.55 if is_hit else 0.2
+                    color = (224, 80, 112) if is_hit else (180, 60, 90)  # RGB
+                    cv2.rectangle(overlay, (rect[0], rect[1]), (rect[2], rect[3]), color, -1)
+                    cv2.addWeighted(overlay, alpha, rgb_frame, 1 - alpha, 0, rgb_frame)
+            
+            # 십자 분할선 렌더링
+            cv2.line(rgb_frame, (0, h//2), (w, h//2), (80, 80, 90), 1)
+            cv2.line(rgb_frame, (w//2, 0), (w//2, h), (80, 80, 90), 1)
+            
+            # 패드 라벨 표시
+            labels = [
+                ("HI-HAT", (15, 25)),
+                ("CLAP", (w//2 + 15, 25)),
+                ("KICK", (15, h//2 + 25)),
+                ("SNARE", (w//2 + 15, h//2 + 25))
+            ]
+            for text, pos in labels:
+                cv2.putText(rgb_frame, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.45, (220, 220, 220), 1, cv2.LINE_AA)
+            
             if hits:
                 pads = ', '.join(h['pad'].upper() for h in hits)
                 self._note_label.setText(pads)
                 self._detail_label.setText(f"velocity {hits[0]['velocity']*100:.0f}%")
+
+        # UI에 최종 영상 출력
+        bytes_per_line = ch * w
+        qimg = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888).copy()
+        self._cam_label.setPixmap(QPixmap.fromImage(qimg))
 
     @pyqtSlot()
     def _on_mode_toggle(self):

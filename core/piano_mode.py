@@ -7,11 +7,11 @@ from core.gesture_detector import is_pinching
 
 class PianoProcessor:
     """
-    손가락 끝 좌표 → 음계/옥타브/볼륨 변환 처리기.
+    손가락 끝 좌표 -> 음계/옥타브/볼륨 변환 처리기.
 
     매핑 규칙:
-      - 검지 끝(tips[1]) X (0.0~1.0) → C장조 2옥타브 범위 음계
-      - 검지 끝(tips[1]) Y (0.0~1.0) → 볼륨 (1.0 - y, 위가 크게)
+      - 검지 끝(tips[1]) X (0.0~1.0) -> C장조 2옥타브 범위 음계
+      - 검지 끝(tips[1]) Y (0.0~1.0) -> 볼륨 (1.0 - y, 위가 크게)
       - 트리거 모드(continuous, strike, pinch)에 따라 피아노 재생
     """
 
@@ -29,7 +29,7 @@ class PianoProcessor:
     def process(self, fingertips: list) -> dict | None:
         """
         fingertips: [{'hand': str, 'tips': [(x,y,z)×5]}, ...]
-        Returns: {'note': str, 'octave': int, 'volume': float} or None
+        Returns: {'note': str, 'octave': int, 'volume': float, 'triggered': bool} or None
         """
         if not fingertips:
             self._prev_y = None
@@ -81,12 +81,12 @@ class PianoProcessor:
             self._audio.play_piano(note, octave, volume)
             self._last_trigger_ms = now_ms
 
-        return {'note': note, 'octave': octave, 'volume': volume}
+        return {'note': note, 'octave': octave, 'volume': volume, 'triggered': should_trigger}
 
     def _x_to_note(self, x: float) -> tuple:
         """
-        X 위치 (0.0~1.0) → (음계 이름, 옥타브)
-        2옥타브(SCALE_NOTES ×2) 범위로 균등 분할
+        X 위치 (0.0~1.0) -> (음계 이름, 옥타브)
+        2옥타브(SCALE_NOTES x2) 범위로 균등 분할
         """
         total = len(SCALE_NOTES) * 2
         idx = int(x * total)
