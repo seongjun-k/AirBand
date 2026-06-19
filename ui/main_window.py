@@ -8,12 +8,12 @@ from PyQt5.QtCore import Qt, QTimer, pyqtSlot
 from PyQt5.QtGui import QImage, QPixmap, QFont
 
 from core.camera_thread import CameraThread
-from core.piano_mode import PianoProcessor
+from core.theremin_mode import ThereminProcessor
 from core.drum_mode import DrumProcessor
 from hardware.gpio_handler import GPIOHandler
 from hardware.audio_engine import AudioEngine
 from config import (
-    THEME_BG, THEME_TEXT, THEME_PIANO_ACC,
+    THEME_BG, THEME_TEXT, THEME_THEREMIN_ACC,
     THEME_DRUM_ACC, THEME_PRIMARY, SLEEP_TIMEOUT_SEC,
     DISP_WIDTH, DISP_HEIGHT, SCALE_NOTES
 )
@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('AirBand')
         self.setStyleSheet(f'background-color: {THEME_BG}; color: {THEME_TEXT};')
 
-        self.mode           = 'piano'
+        self.mode           = 'theremin'
         self.current_param  = 'octave'
         self.base_octave    = 3
         self.sensitivity    = 2.0
@@ -44,9 +44,9 @@ class MainWindow(QMainWindow):
         self._sleep_count   = 0
         self.is_sleeping    = False
 
-        self._audio      = AudioEngine()
-        self._piano_proc = PianoProcessor(self._audio)
-        self._drum_proc  = DrumProcessor(self._audio)
+        self._audio         = AudioEngine()
+        self._theremin_proc = ThereminProcessor(self._audio)
+        self._drum_proc     = DrumProcessor(self._audio)
 
         self._build_ui()
         self._start_camera()
@@ -77,15 +77,15 @@ class MainWindow(QMainWindow):
         row.addWidget(title)
         row.addStretch()
 
-        self._piano_btn = QPushButton('피아노')
-        self._drum_btn  = QPushButton('드럼')
+        self._theremin_btn = QPushButton('테레민')
+        self._drum_btn     = QPushButton('드럼')
         inactive = 'background:#1a1a22;border:1px solid #2a2a38;border-radius:6px;padding:0 16px;color:#7878a0;'
-        for btn in [self._piano_btn, self._drum_btn]:
+        for btn in [self._theremin_btn, self._drum_btn]:
             btn.setFixedHeight(36)
             btn.setStyleSheet(inactive)
-        self._piano_btn.clicked.connect(lambda: self._on_mode_change('piano'))
+        self._theremin_btn.clicked.connect(lambda: self._on_mode_change('theremin'))
         self._drum_btn.clicked.connect(lambda: self._on_mode_change('drum'))
-        row.addWidget(self._piano_btn)
+        row.addWidget(self._theremin_btn)
         row.addWidget(self._drum_btn)
 
         self._param_label = QLabel(f'[{self.current_param}]')
@@ -109,7 +109,7 @@ class MainWindow(QMainWindow):
         self._note_label = QLabel('—')
         self._note_label.setAlignment(Qt.AlignCenter)
         self._note_label.setFont(QFont('sans-serif', 48, QFont.Bold))
-        self._note_label.setStyleSheet(f'color:{THEME_PIANO_ACC};')
+        self._note_label.setStyleSheet(f'color:{THEME_THEREMIN_ACC};')
         playout.addWidget(self._note_label)
 
         self._detail_label = QLabel('손을 카메라 앞에서 움직여보세요')
@@ -149,13 +149,13 @@ class MainWindow(QMainWindow):
 
         h, w, ch = rgb_frame.shape
 
-        # ── 피아노/드럼 건반 구분선 및 타격 하이라이트 렌더링 ──
-        if self.mode == 'piano':
+        # ── 테레민 건반 구분선 및 타격 하이라이트 렌더링 ──
+        if self.mode == 'theremin':
             total_keys = 8  # 1옥타브 도~도 (8칸)
             key_width = w / total_keys
             
-            # 피아노 분석 처리 호출
-            result = self._piano_proc.process(fingertips)
+            # 테레민 분석 처리 호출
+            result = self._theremin_proc.process(fingertips)
             
             active_idx = None
             is_triggered = False
@@ -261,22 +261,22 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def _on_mode_toggle(self):
-        new_mode = 'drum' if self.mode == 'piano' else 'piano'
+        new_mode = 'drum' if self.mode == 'theremin' else 'theremin'
         self._on_mode_change(new_mode)
 
     @pyqtSlot(str)
     def _on_mode_change(self, mode: str):
         self.mode = mode
-        acc = THEME_PIANO_ACC if mode == 'piano' else THEME_DRUM_ACC
+        acc = THEME_THEREMIN_ACC if mode == 'theremin' else THEME_DRUM_ACC
         self._note_label.setStyleSheet(f'color:{acc};')
         active   = f'background:{acc}22;border:1px solid {acc};border-radius:6px;padding:0 16px;color:{acc};'
         inactive = 'background:#1a1a22;border:1px solid #2a2a38;border-radius:6px;padding:0 16px;color:#7878a0;'
-        if mode == 'piano':
-            self._piano_btn.setStyleSheet(active)
+        if mode == 'theremin':
+            self._theremin_btn.setStyleSheet(active)
             self._drum_btn.setStyleSheet(inactive)
         else:
             self._drum_btn.setStyleSheet(active)
-            self._piano_btn.setStyleSheet(inactive)
+            self._theremin_btn.setStyleSheet(inactive)
 
     @pyqtSlot()
     def _on_pir(self):
@@ -293,7 +293,7 @@ class MainWindow(QMainWindow):
     def _on_encoder(self, direction: int):
         if self.current_param == 'octave':
             self.base_octave = max(2, min(6, self.base_octave + direction))
-            self._piano_proc.set_octave(self.base_octave)
+            self._theremin_proc.set_octave(self.base_octave)
             self._param_label.setText(f'[옥타브 {self.base_octave}]')
         elif self.current_param == 'sensitivity':
             self.sensitivity = round(max(0.5, min(5.0, self.sensitivity + direction * 0.2)), 1)

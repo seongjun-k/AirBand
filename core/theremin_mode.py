@@ -1,4 +1,4 @@
-# core/piano_mode.py
+# core/theremin_mode.py
 import time
 import math
 import config
@@ -6,14 +6,14 @@ from config import SCALE_NOTES, BASE_OCTAVE, OCTAVE_RANGE, NOTE_REPEAT_MS
 from core.gesture_detector import is_pinching
 
 
-class PianoProcessor:
+class ThereminProcessor:
     """
     손가락 끝 좌표 -> 음계/옥타브/볼륨 변환 처리기.
 
     매핑 규칙:
       - 검지 끝(tips[1]) X (0.0~1.0) -> C장조 2옥타브 범위 음계
       - 검지 끝(tips[1]) Y (0.0~1.0) -> 볼륨 (1.0 - y, 위가 크게)
-      - 트리거 모드(continuous, strike, pinch, theremin)에 따라 피아노 재생
+      - 트리거 모드(continuous, strike, pinch, theremin)에 따라 테레민 재생
     """
 
     def __init__(self, audio_engine, base_octave=BASE_OCTAVE):
@@ -54,7 +54,7 @@ class PianoProcessor:
         now_ms = now * 1000
         should_trigger = False
 
-        trigger_mode = getattr(config, 'PIANO_TRIGGER_MODE', 'strike')
+        trigger_mode = getattr(config, 'THEREMIN_TRIGGER_MODE', 'theremin')
 
         if trigger_mode == 'continuous':
             if now_ms - self._last_trigger_ms >= NOTE_REPEAT_MS:
@@ -96,7 +96,7 @@ class PianoProcessor:
             self._prev_y = y
 
         if should_trigger:
-            self._audio.play_piano(note, octave, volume)
+            self._audio.play_theremin(note, octave, volume)
             self._last_trigger_ms = now_ms
 
         return {'note': note, 'octave': octave, 'volume': volume, 'triggered': should_trigger}
