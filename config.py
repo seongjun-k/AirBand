@@ -31,10 +31,13 @@ OCTAVE_RANGE   = (2, 6)
 NOTE_DURATION  = 0.18
 NOTE_REPEAT_MS = 160  # 피아노 모드 음 반복 간격 (ms)
 
-# ── 테레민 트리거 설정 ──
+# ── 피아노 트리거 설정 ──
 # 'continuous': 손을 대고 있으면 반복해서 소리 남
 # 'strike': 손가락을 아래로 내릴 때 한 번 소리 남 (타격 감지)
 # 'pinch': 엄지와 검지를 맞닿을 때 한 번 소리 남 (핀치 감지)
+PIANO_TRIGGER_MODE = 'strike'
+
+# ── 테레민 트리거 설정 ──
 # 'theremin': 손을 움직이는 동안 소리 남 (흔들기 감지)
 THEREMIN_TRIGGER_MODE = 'theremin'
 
@@ -60,7 +63,8 @@ AUDIO_BUFFER    = 512
 WINDOW_TITLE   = 'AirBand'
 THEME_BG       = '#0d0d10'
 THEME_TEXT     = '#e8e8f0'
-THEME_THEREMIN_ACC = '#1abf8a'
+THEME_PIANO_ACC = '#1abf8a'
+THEME_THEREMIN_ACC = '#00bcd4'
 THEME_DRUM_ACC  = '#e05070'
 THEME_PRIMARY   = '#7c6af5'
 

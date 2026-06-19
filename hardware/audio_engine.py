@@ -30,8 +30,10 @@ class AudioEngine:
         pygame.sndarray.make_sound(samples).play()
 
     def play_piano(self, note: str, octave: int, volume: float = 0.5):
-        # 하위 호환성 유지
-        self.play_theremin(note, octave, volume)
+        freq    = note_to_freq(note, octave)
+        vol     = self.master_volume * volume
+        samples = self._synth_piano(freq, NOTE_DURATION, vol)
+        pygame.sndarray.make_sound(samples).play()
 
     def play_drum(self, pad: str, velocity: float = 0.5):
         vol = self.master_volume * velocity
@@ -48,6 +50,19 @@ class AudioEngine:
     def set_volume(self, volume: float):
         """volume: 0~100 사이 값"""
         self.master_volume = max(0.0, min(1.0, volume / 100.0))
+
+    def _synth_piano(self, freq: float, duration: float, vol: float) -> np.ndarray:
+        """피아노 특유의 타격형 배음 합성 및 빠른 엔벨롭 감쇠"""
+        sr = AUDIO_FREQUENCY
+        t  = np.linspace(0, duration, int(sr * duration), False)
+        wave = (
+            np.sin(2 * np.pi * freq * t) * 0.6 +
+            np.sin(2 * np.pi * freq * 2 * t) * 0.3 +
+            np.sin(2 * np.pi * freq * 3 * t) * 0.1
+        )
+        envelope = np.exp(-t * 6)
+        wave = (wave * envelope * vol * 32767).astype(np.int16)
+        return np.column_stack([wave, wave])
 
     def _synth_theremin(self, freq: float, duration: float, vol: float) -> np.ndarray:
         """테레민 특유의 사인파 + 약한 비브라토 + 부드러운 엔벨롭 합성"""
