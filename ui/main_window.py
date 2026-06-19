@@ -166,16 +166,17 @@ class MainWindow(QMainWindow):
                 if result and result.get('triggered', False):
                     is_triggered = True
                 
-                # 해당 건반 영역 반투명 하이라이트
+                # 해당 건반 영역 반투명 하이라이트 (ROI 슬라이싱 최적화로 메모리 재할당 차단)
                 x_start = int(active_idx * key_width)
                 x_end = int((active_idx + 1) * key_width)
-                overlay = rgb_frame.copy()
                 
-                # 트리거 시: 진한 보라색(alpha 0.55), 단순 호버 시: 연한 초록색(alpha 0.2)
                 alpha = 0.55 if is_triggered else 0.2
                 color = (245, 106, 124) if is_triggered else (138, 191, 26)  # RGB
-                cv2.rectangle(overlay, (x_start, 0), (x_end, h), color, -1)
-                cv2.addWeighted(overlay, alpha, rgb_frame, 1 - alpha, 0, rgb_frame)
+                
+                # 활성화된 슬롯 부위만 크롭하여 연산
+                roi = rgb_frame[0:h, x_start:x_end]
+                overlay = np.full_like(roi, color)
+                cv2.addWeighted(overlay, alpha, roi, 1 - alpha, 0, roi)
             
             # 세로 건반 경계선 및 음이름 텍스트 오버레이
             for i in range(total_keys):
@@ -226,11 +227,13 @@ class MainWindow(QMainWindow):
                 }
                 rect = rects.get(active_pad)
                 if rect:
-                    overlay = rgb_frame.copy()
                     alpha = 0.55 if is_hit else 0.2
                     color = (224, 80, 112) if is_hit else (180, 60, 90)  # RGB
-                    cv2.rectangle(overlay, (rect[0], rect[1]), (rect[2], rect[3]), color, -1)
-                    cv2.addWeighted(overlay, alpha, rgb_frame, 1 - alpha, 0, rgb_frame)
+                    
+                    # ROI 슬라이싱 최적화로 드럼 패드 부분만 연산
+                    roi = rgb_frame[rect[1]:rect[3], rect[0]:rect[2]]
+                    overlay = np.full_like(roi, color)
+                    cv2.addWeighted(overlay, alpha, roi, 1 - alpha, 0, roi)
             
             # 십자 분할선 렌더링
             cv2.line(rgb_frame, (0, h//2), (w, h//2), (80, 80, 90), 1)
