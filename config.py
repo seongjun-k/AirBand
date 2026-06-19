@@ -9,9 +9,12 @@ ENC_SW      = 25
 
 # ── 카메라 설정 ──
 CAMERA_INDEX = 0  # PC/노트북 웹캠 또는 라즈베리파이 카메라 인덱스
-CAM_WIDTH   = 320
-CAM_HEIGHT  = 240
+CAM_WIDTH   = 640  # 카메라 물리 캡처 가로 해상도 (기존 320 -> 640 고화질 격상)
+CAM_HEIGHT  = 480  # 카메라 물리 캡처 세로 해상도
 CAM_FPS     = 30
+
+DISP_WIDTH  = 640  # 화면에 표시될 가로 해상도
+DISP_HEIGHT = 480  # 화면에 표시될 세로 해상도
 
 # ── MediaPipe 설정 ──
 MP_MODEL_COMPLEXITY   = 0        # Lite 모드 (속도 우선)

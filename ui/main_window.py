@@ -14,7 +14,8 @@ from hardware.gpio_handler import GPIOHandler
 from hardware.audio_engine import AudioEngine
 from config import (
     THEME_BG, THEME_TEXT, THEME_PIANO_ACC,
-    THEME_DRUM_ACC, THEME_PRIMARY, SLEEP_TIMEOUT_SEC
+    THEME_DRUM_ACC, THEME_PRIMARY, SLEEP_TIMEOUT_SEC,
+    DISP_WIDTH, DISP_HEIGHT
 )
 
 
@@ -97,7 +98,7 @@ class MainWindow(QMainWindow):
         body.setSpacing(8)
 
         self._cam_label = QLabel()
-        self._cam_label.setFixedSize(640, 480)
+        self._cam_label.setFixedSize(DISP_WIDTH, DISP_HEIGHT)
         self._cam_label.setStyleSheet('border:1px solid #2a2a38;border-radius:8px;')
         body.addWidget(self._cam_label)
 

@@ -4,7 +4,7 @@ import time
 import math
 from PyQt5.QtCore import QThread, pyqtSignal, QMutex
 from core.hand_tracker import HandTracker
-from config import CAM_WIDTH, CAM_HEIGHT, CAM_FPS, CAMERA_INDEX
+from config import CAM_WIDTH, CAM_HEIGHT, CAM_FPS, CAMERA_INDEX, DISP_WIDTH, DISP_HEIGHT
 
 class InferenceThread(QThread):
     """
@@ -115,9 +115,14 @@ class CameraThread(QThread):
             # 원본 BGR 프레임에 최신 랜드마크 드로잉
             annotated = self._tracker.draw_landmarks(frame, res)
             
-            # 백그라운드 스레드에서 미리 RGB 변환 및 640x480으로 스케일업 수행 (GUI 스레드 부하 분산)
+            # 백그라운드 스레드에서 미리 RGB 변환 및 타겟 디스플레이 해상도로 리사이즈 수행
             rgb_frame = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-            resized_rgb = cv2.resize(rgb_frame, (640, 480), interpolation=cv2.INTER_NEAREST)
+            
+            # 디스플레이 크기와 프레임 크기가 동일하면 리사이즈를 스킵하여 CPU 연산 보존
+            if rgb_frame.shape[1] == DISP_WIDTH and rgb_frame.shape[0] == DISP_HEIGHT:
+                resized_rgb = rgb_frame
+            else:
+                resized_rgb = cv2.resize(rgb_frame, (DISP_WIDTH, DISP_HEIGHT), interpolation=cv2.INTER_NEAREST)
             
             # UI로 즉시 emit
             self.frame_ready.emit(resized_rgb, tips)
