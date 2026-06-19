@@ -100,8 +100,8 @@ class CameraThread(QThread):
                     else:
                         continue
 
-            # 거울 모드 + 상하 반전 (180도 회전) 적용
-            frame = cv2.flip(frame, -1)
+            # 상하 반전 (0) 적용하여 거울 모드를 해제하고 좌우 반전 처리
+            frame = cv2.flip(frame, 0)
 
             # 비동기 추론 스레드에 최신 프레임 전달
             self._inf_thread.set_frame(frame)
