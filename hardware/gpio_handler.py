@@ -52,6 +52,7 @@ class GPIOHandler(QObject):
         self._pi.callback(ENC_SW,    pigpio.FALLING_EDGE, self._on_enc_btn)
 
     def _on_pir(self, gpio, level, tick):
+        print(f"[GPIO] PIR Motion Detected! Pin: {gpio}, Level: {level}")
         self.pir_detected.emit()
 
     def _on_touch(self, gpio, level, tick):

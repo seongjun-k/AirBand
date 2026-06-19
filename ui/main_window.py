@@ -277,9 +277,12 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def _on_pir(self):
+        print(f"[UI] PIR Event Received. Current sleep status: {self.is_sleeping}")
         self._sleep_count = 0
         if self.is_sleeping:
             self.is_sleeping = False
+            self._note_label.setText('—')
+            self._detail_label.setText('손을 카메라 앞에서 움직여보세요')
             self._cam_thread.running = True
             self._cam_thread.start()
 
