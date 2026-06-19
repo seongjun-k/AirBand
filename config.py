@@ -35,7 +35,8 @@ NOTE_REPEAT_MS = 160  # 피아노 모드 음 반복 간격 (ms)
 # 'continuous': 손을 대고 있으면 반복해서 소리 남
 # 'strike': 손가락을 아래로 내릴 때 한 번 소리 남 (타격 감지)
 # 'pinch': 엄지와 검지를 맞닿을 때 한 번 소리 남 (핀치 감지)
-PIANO_TRIGGER_MODE = 'strike'
+# 'theremin': 손을 움직이는 동안 소리 남 (흔들기 감지)
+PIANO_TRIGGER_MODE = 'theremin'
 
 # ── 드럼 설정 ──
 DRUM_PADS = {

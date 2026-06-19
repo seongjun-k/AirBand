@@ -1,5 +1,6 @@
 # core/piano_mode.py
 import time
+import math
 import config
 from config import SCALE_NOTES, BASE_OCTAVE, OCTAVE_RANGE, NOTE_REPEAT_MS
 from core.gesture_detector import is_pinching
@@ -12,7 +13,7 @@ class PianoProcessor:
     매핑 규칙:
       - 검지 끝(tips[1]) X (0.0~1.0) -> C장조 2옥타브 범위 음계
       - 검지 끝(tips[1]) Y (0.0~1.0) -> 볼륨 (1.0 - y, 위가 크게)
-      - 트리거 모드(continuous, strike, pinch)에 따라 피아노 재생
+      - 트리거 모드(continuous, strike, pinch, theremin)에 따라 피아노 재생
     """
 
     def __init__(self, audio_engine, base_octave=BASE_OCTAVE):
@@ -21,6 +22,7 @@ class PianoProcessor:
         self._last_trigger_ms = 0
 
         # 동작 감지용 상태 변수
+        self._prev_x = None
         self._prev_y = None
         self._prev_time = None
         self._was_pinching = False
@@ -32,6 +34,7 @@ class PianoProcessor:
         Returns: {'note': str, 'octave': int, 'volume': float, 'triggered': bool} or None
         """
         if not fingertips:
+            self._prev_x = None
             self._prev_y = None
             self._prev_time = None
             self._was_pinching = False
@@ -76,6 +79,21 @@ class PianoProcessor:
                         should_trigger = True
             self._prev_y = y
             self._prev_time = now
+
+        elif trigger_mode == 'theremin':
+            if self._prev_x is not None and self._prev_y is not None:
+                # 2D 평면 상의 미세 거리 변화 감지
+                dx = x - self._prev_x
+                dy = y - self._prev_y
+                dist = math.hypot(dx, dy)
+                
+                # 미세 움직임 임계치(0.008)를 충족하고 쿨다운이 끝났을 때만 소리 트리거
+                if dist > 0.008 and (now_ms - self._last_trigger_ms) >= self._cooldown_ms:
+                    should_trigger = True
+            
+            # 움직임이 있든 없든 상태 갱신
+            self._prev_x = x
+            self._prev_y = y
 
         if should_trigger:
             self._audio.play_piano(note, octave, volume)
