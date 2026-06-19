@@ -86,13 +86,20 @@ class PianoProcessor:
     def _x_to_note(self, x: float) -> tuple:
         """
         X 위치 (0.0~1.0) -> (음계 이름, 옥타브)
-        2옥타브(SCALE_NOTES x2) 범위로 균등 분할
+        1옥타브 다이어토닉 '도~도' (총 8개 건반) 균등 분할
         """
-        total = len(SCALE_NOTES) * 2
-        idx = int(x * total)
-        idx = max(0, min(idx, total - 1))
-        note = SCALE_NOTES[idx % len(SCALE_NOTES)]
-        octave = self.base_octave + (idx // len(SCALE_NOTES))
+        total_keys = 8
+        idx = int(x * total_keys)
+        idx = max(0, min(idx, total_keys - 1))
+        
+        # 8번째 건반(index 7)은 다음 옥타브의 C (높은 도)
+        if idx == 7:
+            note = 'C'
+            octave = self.base_octave + 1
+        else:
+            note = SCALE_NOTES[idx]
+            octave = self.base_octave
+            
         return note, octave
 
     def set_octave(self, octave: int):

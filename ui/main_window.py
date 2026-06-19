@@ -151,7 +151,7 @@ class MainWindow(QMainWindow):
 
         # ── 피아노/드럼 건반 구분선 및 타격 하이라이트 렌더링 ──
         if self.mode == 'piano':
-            total_keys = len(SCALE_NOTES) * 2  # 2옥타브 분량 (14칸)
+            total_keys = 8  # 1옥타브 도~도 (8칸)
             key_width = w / total_keys
             
             # 피아노 분석 처리 호출
@@ -183,8 +183,14 @@ class MainWindow(QMainWindow):
                 if i > 0:
                     cv2.line(rgb_frame, (x_pos, 0), (x_pos, h), (80, 80, 90), 1)
                 
-                note = SCALE_NOTES[i % len(SCALE_NOTES)]
-                octave = self.base_octave + (i // len(SCALE_NOTES))
+                # 8번째 칸은 높은 도(C + 1옥타브)
+                if i == 7:
+                    note = 'C'
+                    octave = self.base_octave + 1
+                else:
+                    note = SCALE_NOTES[i]
+                    octave = self.base_octave
+                    
                 text = f"{note}{octave}"
                 cx = int((i + 0.5) * key_width)
                 cv2.putText(rgb_frame, text, (cx - 10, h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (220, 220, 220), 1, cv2.LINE_AA)
