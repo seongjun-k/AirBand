@@ -24,7 +24,7 @@ class PianoProcessor:
         self._prev_y = None
         self._prev_time = None
         self._was_pinching = False
-        self._cooldown_ms = 200  # 타격 간 최소 간격
+        self._cooldown_ms = 160  # 타격 간 최소 간격 (config.NOTE_REPEAT_MS와 동기화)
 
     def process(self, fingertips: list) -> dict | None:
         """
@@ -71,8 +71,8 @@ class PianoProcessor:
                     # Y축 좌표는 위가 0, 아래가 1이므로 아래 방향 이동 시 dy > 0
                     dy = y - self._prev_y
                     velocity = dy / dt
-                    # 아래 방향 속도가 0.3 이상이며 쿨다운을 만족할 때 트리거
-                    if velocity > 0.3 and (now_ms - self._last_trigger_ms) >= self._cooldown_ms:
+                    # 아래 방향 속도가 0.15 이상이며 쿨다운을 만족할 때 트리거 (감도 상향 조정)
+                    if velocity > 0.15 and (now_ms - self._last_trigger_ms) >= self._cooldown_ms:
                         should_trigger = True
             self._prev_y = y
             self._prev_time = now
