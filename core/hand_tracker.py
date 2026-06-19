@@ -41,23 +41,38 @@ class HandTracker:
                 results.multi_hand_landmarks, results.multi_handedness
             ):
                 label = handedness.classification[0].label
-                tips = [
-                    (landmarks.landmark[i].x,
-                     landmarks.landmark[i].y,
-                     landmarks.landmark[i].z)
-                    for i in FINGERTIP_IDS
-                ]
-                fingertips.append({'hand': label, 'tips': tips})
+                # 왼손만 인식하도록 필터링
+                if label == 'Left':
+                    tips = [
+                        (landmarks.landmark[i].x,
+                         landmarks.landmark[i].y,
+                         landmarks.landmark[i].z)
+                        for i in FINGERTIP_IDS
+                    ]
+                    fingertips.append({'hand': label, 'tips': tips})
 
         return results, fingertips
 
     def draw_landmarks(self, frame, results):
-        """AI 인식 결과 오버레이 (시각화용)"""
-        if results.multi_hand_landmarks:
-            for lm in results.multi_hand_landmarks:
-                self._draw.draw_landmarks(
-                    frame, lm, self._mp_hands.HAND_CONNECTIONS
-                )
+        """엄지와 검지 끝에만 점을 그려서 시각화"""
+        if results is None:
+            return frame
+        h, w, _ = frame.shape
+        if results.multi_hand_landmarks and results.multi_handedness:
+            for lm, handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
+                label = handedness.classification[0].label
+                if label != 'Left':
+                    continue
+
+                # 4: 엄지 끝, 8: 검지 끝
+                for idx in [4, 8]:
+                    pt = lm.landmark[idx]
+                    cx, cy = int(pt.x * w), int(pt.y * h)
+                    
+                    # 검지: 초록색(26, 191, 138), 엄지: 보라색(124, 106, 245) - BGR 순서
+                    color = (138, 191, 26) if idx == 8 else (245, 106, 124)
+                    cv2.circle(frame, (cx, cy), 8, color, -1)
+                    cv2.circle(frame, (cx, cy), 10, (255, 255, 255), 1)  # 흰색 테두리
         return frame
 
     def close(self):

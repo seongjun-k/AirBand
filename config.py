@@ -2,22 +2,23 @@
 
 # ── GPIO 핀 번호 (BCM 모드) ──
 PIR_PIN     = 17
-TOUCH_PIANO = 27
-TOUCH_DRUM  = 22
+TOUCH_PIN   = 22  # 피아노/드럼 모드 토글 터치 센서 (GPIO 22)
 ENC_CLK     = 23
 ENC_DT      = 24
 ENC_SW      = 25
 
 # ── 카메라 설정 ──
+CAMERA_INDEX = 0  # PC/노트북 웹캠 또는 라즈베리파이 카메라 인덱스
 CAM_WIDTH   = 320
 CAM_HEIGHT  = 240
 CAM_FPS     = 30
 
 # ── MediaPipe 설정 ──
 MP_MODEL_COMPLEXITY   = 0        # Lite 모드 (속도 우선)
-MP_MAX_NUM_HANDS      = 2
-MP_MIN_DETECTION_CONF = 0.7
+MP_MAX_NUM_HANDS      = 1
+MP_MIN_DETECTION_CONF = 0.5
 MP_MIN_TRACKING_CONF  = 0.5
+MP_TRACK_SKIP_FRAMES  = 1            # 0: 스킵 없음, 1: 1프레임 스킵 (2프레임당 1회 추론)
 FINGERTIP_IDS         = [4, 8, 12, 16, 20]  # 엄지~소지 끝 index
 
 # ── 음계 설정 ──
@@ -26,6 +27,12 @@ BASE_OCTAVE    = 3
 OCTAVE_RANGE   = (2, 6)
 NOTE_DURATION  = 0.18
 NOTE_REPEAT_MS = 160  # 피아노 모드 음 반복 간격 (ms)
+
+# ── 피아노 트리거 설정 ──
+# 'continuous': 손을 대고 있으면 반복해서 소리 남
+# 'strike': 손가락을 아래로 내릴 때 한 번 소리 남 (타격 감지)
+# 'pinch': 엄지와 검지를 맞닿을 때 한 번 소리 남 (핀치 감지)
+PIANO_TRIGGER_MODE = 'strike'
 
 # ── 드럼 설정 ──
 DRUM_PADS = {
@@ -45,10 +52,15 @@ AUDIO_FREQUENCY = 44100
 AUDIO_CHANNELS  = 2
 AUDIO_BUFFER    = 512
 
-# ── UI 설정 ──
+# ── UI 및 화면 설정 ──
 WINDOW_TITLE   = 'AirBand'
 THEME_BG       = '#0d0d10'
 THEME_TEXT     = '#e8e8f0'
 THEME_PIANO_ACC = '#1abf8a'
 THEME_DRUM_ACC  = '#e05070'
 THEME_PRIMARY   = '#7c6af5'
+
+FULLSCREEN     = False     # True: 전체화면, False: 창모드
+WINDOW_WIDTH   = 1024      # 창모드 가로 크기 (QHD 환경 대응을 위해 비율 조절)
+WINDOW_HEIGHT  = 720       # 창모드 세로 크기
+

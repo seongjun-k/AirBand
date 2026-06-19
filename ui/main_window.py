@@ -70,14 +70,14 @@ class MainWindow(QMainWindow):
         row = QHBoxLayout(header)
         row.setContentsMargins(4, 4, 4, 4)
 
-        title = QLabel('🎵 AirBand')
+        title = QLabel('AirBand')
         title.setFont(QFont('sans-serif', 16, QFont.Bold))
         title.setStyleSheet(f'color: {THEME_PRIMARY};')
         row.addWidget(title)
         row.addStretch()
 
-        self._piano_btn = QPushButton('🎹 피아노')
-        self._drum_btn  = QPushButton('🥁 드럼')
+        self._piano_btn = QPushButton('피아노')
+        self._drum_btn  = QPushButton('드럼')
         inactive = 'background:#1a1a22;border:1px solid #2a2a38;border-radius:6px;padding:0 16px;color:#7878a0;'
         for btn in [self._piano_btn, self._drum_btn]:
             btn.setFixedHeight(36)
@@ -130,32 +130,33 @@ class MainWindow(QMainWindow):
         try:
             self._gpio = GPIOHandler()
             self._gpio.pir_detected.connect(self._on_pir)
-            self._gpio.mode_changed.connect(self._on_mode_change)
+            self._gpio.mode_toggle.connect(self._on_mode_toggle)
             self._gpio.encoder_rotated.connect(self._on_encoder)
             self._gpio.encoder_pressed.connect(self._on_enc_btn)
-        except RuntimeError as e:
+        except Exception as e:
             print(f'[GPIO 경고] {e}')
             self._gpio = None
 
     # ── 슬롯 ──
     @pyqtSlot(object, object)
-    def _on_frame(self, frame: np.ndarray, fingertips: list):
+    def _on_frame(self, rgb_frame: np.ndarray, fingertips: list):
+        if fingertips:
+            self._sleep_count = 0
+
         if self.is_sleeping:
             return
 
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb.shape
-        qimg = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
-        self._cam_label.setPixmap(
-            QPixmap.fromImage(qimg).scaled(640, 480, Qt.KeepAspectRatio)
-        )
+        h, w, ch = rgb_frame.shape
+        bytes_per_line = ch * w
+        qimg = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format_RGB888).copy()
+        self._cam_label.setPixmap(QPixmap.fromImage(qimg))
 
         if self.mode == 'piano':
             result = self._piano_proc.process(fingertips)
             if result:
                 self._note_label.setText(f"{result['note']}{result['octave']}")
                 self._detail_label.setText(
-                    f"Vol {result['volume']*100:.0f}%  |  옷타브 {result['octave']}"
+                    f"Vol {result['volume']*100:.0f}%  |  옥타브 {result['octave']}"
                 )
         else:
             hits = self._drum_proc.process(fingertips)
@@ -163,6 +164,11 @@ class MainWindow(QMainWindow):
                 pads = ', '.join(h['pad'].upper() for h in hits)
                 self._note_label.setText(pads)
                 self._detail_label.setText(f"velocity {hits[0]['velocity']*100:.0f}%")
+
+    @pyqtSlot()
+    def _on_mode_toggle(self):
+        new_mode = 'drum' if self.mode == 'piano' else 'piano'
+        self._on_mode_change(new_mode)
 
     @pyqtSlot(str)
     def _on_mode_change(self, mode: str):
@@ -184,13 +190,14 @@ class MainWindow(QMainWindow):
         if self.is_sleeping:
             self.is_sleeping = False
             self._cam_thread.running = True
+            self._cam_thread.start()
 
     @pyqtSlot(int)
     def _on_encoder(self, direction: int):
         if self.current_param == 'octave':
             self.base_octave = max(2, min(6, self.base_octave + direction))
             self._piano_proc.set_octave(self.base_octave)
-            self._param_label.setText(f'[옷타브 {self.base_octave}]')
+            self._param_label.setText(f'[옥타브 {self.base_octave}]')
         elif self.current_param == 'sensitivity':
             self.sensitivity = round(max(0.5, min(5.0, self.sensitivity + direction * 0.2)), 1)
             self._drum_proc.set_sensitivity(self.sensitivity)
@@ -212,8 +219,8 @@ class MainWindow(QMainWindow):
         if self._sleep_count >= SLEEP_TIMEOUT_SEC and not self.is_sleeping:
             self.is_sleeping = True
             self._cam_thread.running = False
-            self._note_label.setText('💤')
-            self._detail_label.setText('PIR 감지 시 활성화됩니다')
+            self._note_label.setText('절전 대기')
+            self._detail_label.setText('손을 보여주거나 움직임이 감지되면 활성화됩니다')
 
     def closeEvent(self, event):
         self._cam_thread.stop()
