@@ -12,7 +12,7 @@ CAMERA_INDEX = 0  # PC/노트북 웹캠 또는 라즈베리파이 카메라 인�
 CAM_WIDTH   = 640  # 카메라 물리 캡처 가로 해상도 (기존 320 -> 640 고화질 격상)
 CAM_HEIGHT  = 480  # 카메라 물리 캡처 세로 해상도
 CAM_FPS     = 30
-CAMERA_FLIP_MODE = -1  # 1: 좌우(거울), 0: 상하, -1: 상하좌우(180도 회전), None: 반전없음
+CAMERA_FLIP_MODE = 0  # 1: 좌우(거울), 0: 상하, -1: 상하좌우(180도 회전), None: 반전없음
 
 DISP_WIDTH  = 640  # 화면에 표시될 가로 해상도
 DISP_HEIGHT = 480  # 화면에 표시될 세로 해상도

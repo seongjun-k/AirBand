@@ -40,7 +40,10 @@ AirBand/
 │   ├── drum_mode.py         # 드럼 속도 기반 타격 감지기
 │   └── camera_thread.py     # 비동기 추론(Inference) QThread를 내장한 카메라 캡처 스레드
 ├── hardware/
-│   ├── gpio_handler.py      # pigpio GPIO 인터럽트 → pyqtSignal 발행
+│   ├── gpio_handler.py      # GPIO 이벤트 통합 처리기 (통합 브릿지)
+│   ├── pir_sensor.py        # PIR 인체 감지 센서 모듈
+│   ├── touch_sensor.py      # 모드 전환 터치 센서 모듈
+│   ├── rotary_encoder.py    # 파라미터 조절용 로터리 엔코더 모듈
 │   └── audio_engine.py      # pygame 오디오 엔진 (실시간 음색 합성 및 샘플 재생)
 ├── ui/                      # PyQt5 UI 컴포넌트 (main_window.py 등)
 ├── assets/                  # 오디오 샘플, 아이콘 등 리소스

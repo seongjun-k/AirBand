@@ -4,19 +4,15 @@ try:
 except ImportError:
     pigpio = None
 from PyQt5.QtCore import QObject, pyqtSignal
-from config import PIR_PIN, TOUCH_PIN, ENC_CLK, ENC_DT, ENC_SW
+from hardware.pir_sensor import PIRSensor
+from hardware.touch_sensor import TouchSensor
+from hardware.rotary_encoder import RotaryEncoder
 
 
 class GPIOHandler(QObject):
     """
-    pigpio 기반 GPIO 인터럽트 처리.
-    이벤트를 pyqtSignal로 발행 → 메인 스레드(Qt)에서 안전하게 처리.
-
-    Signals:
-        pir_detected()       : PIR 인체 감지
-        mode_changed(str)    : 모드 전환 ('piano' | 'drum')
-        encoder_rotated(int) : 엔코더 회전 (+1 시계, -1 반시계)
-        encoder_pressed()    : 엔코더 버튼 (파라미터 순환)
+    각 개별 센서 모듈들을 생성하고 통합 관리하는 GPIO 핸들러.
+    상위 UI(Qt)와의 완벽한 호환성을 위해 기존과 동일한 인터페이스(pyqtSignal)를 제공합니다.
     """
     pir_detected    = pyqtSignal()
     mode_toggle     = pyqtSignal()
@@ -32,41 +28,21 @@ class GPIOHandler(QObject):
         self._pi = pigpio.pi()
         if not self._pi.connected:
             raise RuntimeError(
-                "pigpio 데실 연결 실패. 'sudo systemctl start pigpiod' 확인"
+                "pigpio 데몬 연결 실패. 'sudo systemctl start pigpiod' 확인"
             )
-        self._setup_pins()
-        self._register_callbacks()
-        self._enc_last_clk = self._pi.read(ENC_CLK)
 
-    def _setup_pins(self):
-        for pin in [PIR_PIN, TOUCH_PIN, ENC_CLK, ENC_DT]:
-            self._pi.set_mode(pin, pigpio.INPUT)
-            self._pi.set_pull_up_down(pin, pigpio.PUD_DOWN)
-        self._pi.set_mode(ENC_SW, pigpio.INPUT)
-        self._pi.set_pull_up_down(ENC_SW, pigpio.PUD_UP)  # 버튼은 풀업
+        # 센서별 모듈 객체 초기화 (동일한 pigpio 커넥션 참조 전달)
+        self.pir = PIRSensor(self._pi, parent=self)
+        self.touch = TouchSensor(self._pi, parent=self)
+        self.encoder = RotaryEncoder(self._pi, parent=self)
 
-    def _register_callbacks(self):
-        self._pi.callback(PIR_PIN,   pigpio.RISING_EDGE,  self._on_pir)
-        self._pi.callback(TOUCH_PIN, pigpio.RISING_EDGE,  self._on_touch)
-        self._pi.callback(ENC_CLK,   pigpio.RISING_EDGE,  self._on_encoder)
-        self._pi.callback(ENC_SW,    pigpio.FALLING_EDGE, self._on_enc_btn)
-
-    def _on_pir(self, gpio, level, tick):
-        print(f"[GPIO] PIR Motion Detected! Pin: {gpio}, Level: {level}")
-        self.pir_detected.emit()
-
-    def _on_touch(self, gpio, level, tick):
-        self.mode_toggle.emit()
-
-    def _on_encoder(self, gpio, level, tick):
-        """CLK/DT 위상 차로 회전 방향 감지 (RISING_EDGE 전용)"""
-        # CLK가 RISING_EDGE이므로 level(또는 read(CLK))은 항상 1(High)입니다.
-        dt = self._pi.read(ENC_DT)
-        direction = -1 if dt == 0 else 1
-        self.encoder_rotated.emit(direction)
-
-    def _on_enc_btn(self, gpio, level, tick):
-        self.encoder_pressed.emit()
+        # 개별 센서 모듈의 이벤트를 공통 API 시그널로 릴레이 포워딩
+        self.pir.motion_detected.connect(self.pir_detected.emit)
+        self.touch.touched.connect(self.mode_toggle.emit)
+        self.encoder.rotated.connect(self.encoder_rotated.emit)
+        self.encoder.pressed.connect(self.encoder_pressed.emit)
 
     def cleanup(self):
-        self._pi.stop()
+        """pigpio 커넥션 정리 및 해제"""
+        if self._pi:
+            self._pi.stop()
