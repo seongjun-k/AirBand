@@ -4,7 +4,7 @@ import time
 import math
 from PyQt5.QtCore import QThread, pyqtSignal, QMutex
 from core.hand_tracker import HandTracker
-from config import CAM_WIDTH, CAM_HEIGHT, CAM_FPS, CAMERA_INDEX, DISP_WIDTH, DISP_HEIGHT
+from config import CAM_WIDTH, CAM_HEIGHT, CAM_FPS, CAMERA_INDEX, DISP_WIDTH, DISP_HEIGHT, CAMERA_FLIP_MODE
 
 class InferenceThread(QThread):
     """
@@ -100,8 +100,9 @@ class CameraThread(QThread):
                     else:
                         continue
 
-            # 좌우 반전 (1) 적용하여 거울 모드 해제 (0=상하, 1=좌우, -1=둘다)
-            frame = cv2.flip(frame, 1)
+            # 카메라 플립 처리 (1: 좌우, 0: 상하, -1: 상하좌우, None: 반전없음)
+            if CAMERA_FLIP_MODE is not None:
+                frame = cv2.flip(frame, CAMERA_FLIP_MODE)
 
             # 비동기 추론 스레드에 최신 프레임 전달
             self._inf_thread.set_frame(frame)
