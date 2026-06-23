@@ -76,6 +76,32 @@ class AudioEngine:
         stereo = np.column_stack([wave, wave])
         return pygame.sndarray.make_sound(stereo)
 
+    def play_theremin(self, note: str, octave: int, volume: float = 0.8):
+        """
+        테레마 음 합성(비브라토 사인파) 후 재생.
+
+        Parameters
+        ----------
+        note   : 음계 이름 (C, D, ..., B)
+        octave : 옥타브 (0~8)
+        volume : 0.0~1.0 음량
+        """
+        freq = self._note_to_freq(note, octave)
+        sound = self._synthesize_theremin(freq, NOTE_DURATION, volume * self._volume)
+        sound.play()
+
+    def _synthesize_theremin(self, freq: float, duration: float, amplitude: float):
+        """테레마 풍 합성 (6Hz 비브라토 + 부드러운 감쇠 엔벨롯) → pygame.mixer.Sound 반환"""
+        sr = AUDIO_FREQUENCY
+        t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+        vibrato = 1.0 + 0.01 * np.sin(2 * np.pi * 6.0 * t)
+        phase = 2 * np.pi * freq * t * vibrato
+        wave = np.sin(phase) * 0.95 + np.sin(2 * phase) * 0.05
+        envelope = np.exp(-t * 4)
+        wave = (wave * envelope * amplitude * 32767).astype(np.int16)
+        stereo = np.column_stack([wave, wave])
+        return pygame.sndarray.make_sound(stereo)
+
     # ── 드럼 ──────────────────────────────────────────────────
 
     def play_drum(self, pad: str, velocity: float = 0.8):

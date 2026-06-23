@@ -156,44 +156,48 @@ class MainWindow(QMainWindow):
 
         # ── 피아노 또는 테레민 건반 구분선 및 하이라이트 렌더링 ──
         if self.mode in ('piano', 'theremin'):
-            total_keys = 8  # 1옥타브 도~도 (8칸)
+            total_keys = 8
             key_width = w / total_keys
             
             # 각각의 프로세서 및 테마 색상 적용
             if self.mode == 'piano':
-                result = self._piano_proc.process(fingertips)
+                results = self._piano_proc.process(fingertips)
                 theme_acc = THEME_PIANO_ACC
             else:
-                result = self._theremin_proc.process(fingertips)
+                results = self._theremin_proc.process(fingertips)
                 theme_acc = THEME_THEREMIN_ACC
-            
-            active_idx = None
-            is_triggered = False
+
             if fingertips:
-                hand = fingertips[0]
-                x, y, z = hand['tips'][1]  # 검지 끝 좌표
-                active_idx = int(max(0.0, min(0.999, x)) * total_keys)
-                if result and result.get('triggered', False):
-                    is_triggered = True
-                
-                # 해당 건반 영역 반투명 하이라이트 (ROI 슬라이싱 최적화로 메모리 재할당 차단)
-                x_start = int(active_idx * key_width)
-                x_end = int((active_idx + 1) * key_width)
-                
-                alpha = 0.55 if is_triggered else 0.2
-                
-                # 피아노는 초록, 테레민은 하늘색 계열 하이라이트
-                if self.mode == 'piano':
-                    color = (138, 191, 26)  # 기본 초록
-                    if is_triggered: color = (245, 106, 124)  # 타격 시 붉은 핑크
-                else:
-                    color = (0, 188, 212)  # 기본 스카이블루
-                    if is_triggered: color = (255, 152, 0)  # 흔들기 트리거 시 주황
-                
-                # 활성화된 슬롯 부위만 크롭하여 연산
-                roi = rgb_frame[0:h, x_start:x_end]
-                overlay = np.full_like(roi, color)
-                cv2.addWeighted(overlay, alpha, roi, 1 - alpha, 0, roi)
+                for hand in fingertips:
+                    x, y, z = hand['tips'][1]  # 검지 끝 좌표
+                    active_idx = int(max(0.0, min(0.999, x)) * total_keys)
+                    
+                    is_triggered = False
+                    is_pressed = False
+                    if results:
+                        for res in results:
+                            if res.get('hand') == hand['hand']:
+                                is_triggered = res.get('triggered', False)
+                                is_pressed = res.get('pressed', False)
+                                break
+                    
+                    # 해당 건반 영역 반투명 하이라이트 (ROI 슬라이싱 최적화로 메모리 재할당 차단)
+                    x_start = int(active_idx * key_width)
+                    x_end = int((active_idx + 1) * key_width)
+                    
+                    alpha = 0.55 if is_pressed else 0.2
+                    # 피아노는 초록, 테레민은 하늘색 계열 하이라이트
+                    if self.mode == 'piano':
+                        color = (138, 191, 26)  # 기본 초록
+                        if is_triggered: color = (245, 106, 124)  # 타격 시 붉은 핑크
+                    else:
+                        color = (0, 188, 212)  # 기본 스카이블루
+                        if is_triggered: color = (255, 152, 0)  # 흔들기 트리거 시 주황
+                    
+                    # 활성화된 슬롯 부위만 크롭하여 연산
+                    roi = rgb_frame[0:h, x_start:x_end]
+                    overlay = np.full_like(roi, color)
+                    cv2.addWeighted(overlay, alpha, roi, 1 - alpha, 0, roi)
             
             # 세로 건반 경계선 및 음이름 텍스트 오버레이
             for i in range(total_keys):
@@ -213,10 +217,12 @@ class MainWindow(QMainWindow):
                 cx = int((i + 0.5) * key_width)
                 cv2.putText(rgb_frame, text, (cx - 10, h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (220, 220, 220), 1, cv2.LINE_AA)
             
-            if result:
-                self._note_label.setText(f"{result['note']}{result['octave']}")
+            if results:
+                notes = ', '.join(f"{res['note']}{res['octave']}" for res in results)
+                self._note_label.setText(notes)
+                vols = '/'.join(f"{res['volume']*100:.0f}%" for res in results)
                 self._detail_label.setText(
-                    f"Vol {result['volume']*100:.0f}%  |  옥타브 {result['octave']}"
+                    f"Vol {vols}  |  옥타브 {results[0]['octave']}"
                 )
         else:
             # 드럼 분석 처리 호출
@@ -312,8 +318,9 @@ class MainWindow(QMainWindow):
             self.is_sleeping = False
             self._note_label.setText('—')
             self._detail_label.setText('손을 카메라 앞에서 움직여보세요')
-            self._cam_thread.running = True
-            self._cam_thread.start()
+            # QThread는 run() 종료 후 start() 재호출이 무시됨 → 스레드를 완전히 재생성
+            self._cam_thread.stop()   # wait()까지 블로킹 대기 후 완전 종료
+            self._start_camera()      # 새 CameraThread 인스턴스 생성 및 start()
 
     @pyqtSlot(int)
     def _on_encoder(self, direction: int):

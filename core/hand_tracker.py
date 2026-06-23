@@ -41,29 +41,24 @@ class HandTracker:
                 results.multi_hand_landmarks, results.multi_handedness
             ):
                 label = handedness.classification[0].label
-                # 왼손만 인식하도록 필터링
-                if label == 'Left':
-                    tips = [
-                        (landmarks.landmark[i].x,
-                         landmarks.landmark[i].y,
-                         landmarks.landmark[i].z)
-                        for i in FINGERTIP_IDS
-                    ]
-                    fingertips.append({'hand': label, 'tips': tips})
+                # 두 손 모두 감지 및 팁 좌표 추출
+                tips = [
+                    (landmarks.landmark[i].x,
+                     landmarks.landmark[i].y,
+                     landmarks.landmark[i].z)
+                    for i in FINGERTIP_IDS
+                ]
+                fingertips.append({'hand': label, 'tips': tips})
 
         return results, fingertips
 
     def draw_landmarks(self, frame, results):
-        """엄지와 검지 끝에만 점을 그려서 시각화"""
+        """엄지와 검지 끝에만 점을 그려서 시각화 (양손 모두 지원)"""
         if results is None:
             return frame
         h, w, _ = frame.shape
         if results.multi_hand_landmarks and results.multi_handedness:
             for lm, handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
-                label = handedness.classification[0].label
-                if label != 'Left':
-                    continue
-
                 # 4: 엄지 끝, 8: 검지 끝
                 for idx in [4, 8]:
                     pt = lm.landmark[idx]

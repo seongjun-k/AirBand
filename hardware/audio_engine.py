@@ -21,19 +21,25 @@ class AudioEngine:
     def __init__(self):
         pygame.mixer.pre_init(AUDIO_FREQUENCY, -16, AUDIO_CHANNELS, AUDIO_BUFFER)
         pygame.mixer.init()
+        pygame.mixer.set_num_channels(32)  # 동시 채널 수를 32개로 늘림
         self.master_volume = 0.7
+        self._active_sounds = []  # 가비지 컬렉터에 의해 소리가 끊기는 현상 방지용 참조 보관 리스트
 
     def play_theremin(self, note: str, octave: int, volume: float = 0.5):
         freq    = note_to_freq(note, octave)
         vol     = self.master_volume * volume
         samples = self._synth_theremin(freq, NOTE_DURATION, vol)
-        pygame.sndarray.make_sound(samples).play()
+        sound = pygame.sndarray.make_sound(samples)
+        sound.play()
+        self._keep_alive(sound)
 
     def play_piano(self, note: str, octave: int, volume: float = 0.5):
         freq    = note_to_freq(note, octave)
         vol     = self.master_volume * volume
         samples = self._synth_piano(freq, NOTE_DURATION, vol)
-        pygame.sndarray.make_sound(samples).play()
+        sound = pygame.sndarray.make_sound(samples)
+        sound.play()
+        self._keep_alive(sound)
 
     def play_drum(self, pad: str, velocity: float = 0.5):
         vol = self.master_volume * velocity
@@ -45,7 +51,14 @@ class AudioEngine:
         }
         fn = synth_map.get(pad)
         if fn:
-            pygame.sndarray.make_sound(fn(vol)).play()
+            sound = pygame.sndarray.make_sound(fn(vol))
+            sound.play()
+            self._keep_alive(sound)
+
+    def _keep_alive(self, sound):
+        self._active_sounds.append(sound)
+        if len(self._active_sounds) > 32:
+            self._active_sounds.pop(0)
 
     def set_volume(self, volume: float):
         """volume: 0~100 사이 값"""

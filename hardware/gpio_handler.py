@@ -48,7 +48,7 @@ class GPIOHandler(QObject):
     def _register_callbacks(self):
         self._pi.callback(PIR_PIN,   pigpio.RISING_EDGE,  self._on_pir)
         self._pi.callback(TOUCH_PIN, pigpio.RISING_EDGE,  self._on_touch)
-        self._pi.callback(ENC_CLK,   pigpio.EITHER_EDGE,  self._on_encoder)
+        self._pi.callback(ENC_CLK,   pigpio.RISING_EDGE,  self._on_encoder)
         self._pi.callback(ENC_SW,    pigpio.FALLING_EDGE, self._on_enc_btn)
 
     def _on_pir(self, gpio, level, tick):
@@ -59,13 +59,11 @@ class GPIOHandler(QObject):
         self.mode_toggle.emit()
 
     def _on_encoder(self, gpio, level, tick):
-        """CLK/DT 위상 차로 회전 방향 감지"""
-        clk = self._pi.read(ENC_CLK)
-        dt  = self._pi.read(ENC_DT)
-        if clk != self._enc_last_clk:
-            direction = -1 if clk != dt else 1
-            self.encoder_rotated.emit(direction)
-        self._enc_last_clk = clk
+        """CLK/DT 위상 차로 회전 방향 감지 (RISING_EDGE 전용)"""
+        # CLK가 RISING_EDGE이므로 level(또는 read(CLK))은 항상 1(High)입니다.
+        dt = self._pi.read(ENC_DT)
+        direction = -1 if dt == 0 else 1
+        self.encoder_rotated.emit(direction)
 
     def _on_enc_btn(self, gpio, level, tick):
         self.encoder_pressed.emit()

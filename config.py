@@ -18,7 +18,7 @@ DISP_HEIGHT = 480  # 화면에 표시될 세로 해상도
 
 # ── MediaPipe 설정 ──
 MP_MODEL_COMPLEXITY   = 0        # Lite 모드 (속도 우선)
-MP_MAX_NUM_HANDS      = 1
+MP_MAX_NUM_HANDS      = 2
 MP_MIN_DETECTION_CONF = 0.5
 MP_MIN_TRACKING_CONF  = 0.5
 MP_TRACK_SKIP_FRAMES  = 1            # 0: 스킵 없음, 1: 1프레임 스킵 (2프레임당 1회 추론)
@@ -35,7 +35,7 @@ NOTE_REPEAT_MS = 160  # 피아노 모드 음 반복 간격 (ms)
 # 'continuous': 손을 대고 있으면 반복해서 소리 남
 # 'strike': 손가락을 아래로 내릴 때 한 번 소리 남 (타격 감지)
 # 'pinch': 엄지와 검지를 맞닿을 때 한 번 소리 남 (핀치 감지)
-PIANO_TRIGGER_MODE = 'strike'
+PIANO_TRIGGER_MODE = 'pinch'
 
 # ── 테레민 트리거 설정 ──
 # 'theremin': 손을 움직이는 동안 소리 남 (흔들기 감지)
@@ -72,3 +72,5 @@ FULLSCREEN     = False     # True: 전체화면, False: 창모드
 WINDOW_WIDTH   = 1024      # 창모드 가로 크기 (QHD 환경 대응을 위해 비율 조절)
 WINDOW_HEIGHT  = 720       # 창모드 세로 크기
 
+# ── 디바이스 모드 설정 ──
+DEVICE_MODE = 'pi'  # 'pi': 라즈베리파이, 'pc': 로컬 개발 환경
